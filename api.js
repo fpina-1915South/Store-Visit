@@ -1,5 +1,5 @@
 /* Store Visit data layer (Firebase, free Spark plan). All collections start with sv_ so they never touch the Smart Scheduler's data. */
-import { firebaseConfig, EMAIL_DOMAIN, OWNER_EMAILS } from './config.js';
+import { firebaseConfig, EMAIL_DOMAIN, OWNER_EMAILS, EXEC_EMAILS } from './config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, signOut as fbSignOut,
   setPersistence, browserLocalPersistence } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
@@ -13,7 +13,7 @@ setPersistence(auth, browserLocalPersistence).catch(()=>{});
 
 const C = { visits:'sv_visits', last:'sv_storeLast', rosters:'sv_rosters', metrics:'sv_metrics', admins:'sv_admins', users:'sv_users' };
 const EMAIL_KEY = 'sv_signin_email';
-let ADMIN = false;
+let ADMIN = false, EXEC = false;
 
 /* Resolve a write, or report "queued" if the phone is offline (Firestore sends it when signal returns). */
 function ackOrQueue(p, ms=7000){ return Promise.race([p.then(()=>'saved'), new Promise(r=>setTimeout(()=>r('queued'),ms))]); }
@@ -44,7 +44,8 @@ const API = {
       let profile={}; try{ const s=await getDoc(doc(db,C.users,user.uid)); profile=s.exists()?s.data():{}; }catch(e){}
       ADMIN = OWNER_EMAILS.includes(user.email.toLowerCase());
       if(!ADMIN){ try{ ADMIN=(await getDoc(doc(db,C.admins,user.email.toLowerCase()))).exists(); }catch(e){ ADMIN=false; } }
-      cb({uid:user.uid,email:user.email}, {profile, isAdmin:ADMIN});
+      EXEC = ADMIN || EXEC_EMAILS.includes(user.email.toLowerCase());
+      cb({uid:user.uid,email:user.email}, {profile, isAdmin:ADMIN, isExec:EXEC});
     });
   },
   signOut(){ return fbSignOut(auth); },
@@ -78,11 +79,11 @@ const API = {
   },
   async listVisits(){
     const u=auth.currentUser;
-    const q= ADMIN ? query(collection(db,C.visits),orderBy('submittedAt','desc'),limit(1000))
+    const q= EXEC ? query(collection(db,C.visits),orderBy('submittedAt','desc'),limit(1000))
                    : query(collection(db,C.visits),where('uid','==',u.uid));
     const s=await getDocs(q); return s.docs.map(d=>({id:d.id,...d.data(),submittedAt:d.data().submittedAt?.toDate?.()||null}));
   },
-  async getPhotos(id){ const col=collection(db,C.visits,id,'photos'); const s=await getDocs(ADMIN?col:query(col,where('uid','==',auth.currentUser.uid))); return s.docs.map(d=>({id:d.id,...d.data()})); },
+  async getPhotos(id){ const col=collection(db,C.visits,id,'photos'); const s=await getDocs(EXEC?col:query(col,where('uid','==',auth.currentUser.uid))); return s.docs.map(d=>({id:d.id,...d.data()})); },
   async clearPhotos(id){ const s=await getDocs(collection(db,C.visits,id,'photos')); await Promise.all(s.docs.map(d=>deleteDoc(d.ref)));
     await setDoc(doc(db,C.visits,id),{photoCount:0,photoBytes:0,photosClearedAt:serverTimestamp()},{merge:true}); }
 };
