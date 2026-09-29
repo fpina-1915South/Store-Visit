@@ -41,6 +41,8 @@ const API = {
     onAuthStateChanged(auth, async user=>{
       if(!user){ ADMIN=false; cb(null,{}); return; }
       if(!okDomain(user.email)){ await fbSignOut(auth); cb(null,{error:'Only @'+EMAIL_DOMAIN+' emails can use this app.'}); return; }
+      /* Signed in by password (e.g. from the Smart Scheduler) but not yet by email link: one-time link sign-in verifies the email. */
+      if(!user.emailVerified){ ADMIN=false; EXEC=false; cb(null,{needsVerify:true,email:user.email}); return; }
       let profile={}; try{ const s=await getDoc(doc(db,C.users,user.uid)); profile=s.exists()?s.data():{}; }catch(e){}
       ADMIN = OWNER_EMAILS.includes(user.email.toLowerCase());
       if(!ADMIN){ try{ ADMIN=(await getDoc(doc(db,C.admins,user.email.toLowerCase()))).exists(); }catch(e){ ADMIN=false; } }

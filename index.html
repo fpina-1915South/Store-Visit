@@ -991,7 +991,9 @@ $('gate-send').addEventListener('click',async()=>{
   b.disabled=false;});
 API.finishLinkIfPresent(async()=>prompt('To finish signing in, type your 1915 South email:')).catch(e=>gate(true,'That sign-in link didn\'t work ('+(e.code||e.message)+'). Request a new one.'));
 API.onUser(async(u,info)=>{
-  if(!u){USER=null;gate(true,info.error||'');$('acct').innerHTML='';return;}
+  if(!u){USER=null;$('acct').innerHTML='';
+    if(info.needsVerify){$('gate-email').value=info.email||'';$('gate-form').style.display='';gate(true,'One quick step, only needed once: tap the button and open the sign-in link we email you.');return;}
+    gate(true,info.error||'');return;}
   USER=u;gate(false);
   const dn=DIRECTORS[u.email.toLowerCase()];if(dn){const d=$('director');d.value=dn;d.readOnly=true;d.style.opacity='.85';S.header.director=dn;save();}
   $('acct').innerHTML=escA(u.email)+'<br><a href="#" id="nv">New visit</a> · <a href="log.html">Visit log</a> · <a href="#" id="so">Sign out</a>';
