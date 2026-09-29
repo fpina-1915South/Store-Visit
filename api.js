@@ -2,6 +2,7 @@
 import { firebaseConfig, EMAIL_DOMAIN, OWNER_EMAILS, EXEC_EMAILS } from './config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, signOut as fbSignOut,
+  signInWithEmailAndPassword, sendPasswordResetEmail,
   setPersistence, browserLocalPersistence } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, collection, getDocs,
   query, where, orderBy, limit, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
@@ -21,10 +22,23 @@ function okDomain(email){ return String(email||'').toLowerCase().endsWith('@'+EM
 
 const API = {
   domain: EMAIL_DOMAIN,
+  async signInPassword(email,pw){
+    email=String(email||'').trim().toLowerCase();
+    if(!okDomain(email)) throw new Error('Use your @'+EMAIL_DOMAIN+' email.');
+    try{ await signInWithEmailAndPassword(auth,email,pw); }
+    catch(e){ const c=e.code||''; if(/invalid-credential|wrong-password|user-not-found|invalid-login/.test(c)) throw new Error('That email and password did not match. Use your Smart Scheduler password, or tap Forgot password.');
+      if(/too-many-requests/.test(c)) throw new Error('Too many tries. Wait a few minutes, or tap Forgot password.'); throw e; }
+  },
+  async resetPassword(email){
+    email=String(email||'').trim().toLowerCase();
+    if(!okDomain(email)) throw new Error('Use your @'+EMAIL_DOMAIN+' email.');
+    await sendPasswordResetEmail(auth,email);
+  },
   async sendLink(email){
     email=String(email||'').trim().toLowerCase();
     if(!okDomain(email)) throw new Error('Use your @'+EMAIL_DOMAIN+' email.');
-    await sendSignInLinkToEmail(auth, email, { url: location.href.split('?')[0].split('#')[0], handleCodeInApp: true });
+    try{ await sendSignInLinkToEmail(auth, email, { url: location.href.split('?')[0].split('#')[0], handleCodeInApp: true }); }
+    catch(e){ if(/quota|too-many/.test(e.code||'')) throw new Error('Email sign-in links are maxed out for today. Sign in with your password instead.'); throw e; }
     try{ localStorage.setItem(EMAIL_KEY, email); }catch(e){}
   },
   async finishLinkIfPresent(askEmail){
@@ -42,7 +56,6 @@ const API = {
       if(!user){ ADMIN=false; cb(null,{}); return; }
       if(!okDomain(user.email)){ await fbSignOut(auth); cb(null,{error:'Only @'+EMAIL_DOMAIN+' emails can use this app.'}); return; }
       /* Signed in by password (e.g. from the Smart Scheduler) but not yet by email link: one-time link sign-in verifies the email. */
-      if(!user.emailVerified){ ADMIN=false; EXEC=false; cb(null,{needsVerify:true,email:user.email}); return; }
       let profile={}; try{ const s=await getDoc(doc(db,C.users,user.uid)); profile=s.exists()?s.data():{}; }catch(e){}
       ADMIN = OWNER_EMAILS.includes(user.email.toLowerCase());
       if(!ADMIN){ try{ ADMIN=(await getDoc(doc(db,C.admins,user.email.toLowerCase()))).exists(); }catch(e){ ADMIN=false; } }

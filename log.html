@@ -84,7 +84,6 @@ const TAG={yes:'YES',partial:'PARTIAL',no:'NO',pass:'MEETS',needs:'NEEDS WORK'};
 
 API.onUser(async(u,info)=>{
   if(!u){$('signin').style.display='block';$('listview').style.display='none';$('acct').innerHTML='';
-    if(info&&info.needsVerify)$('signin').innerHTML='<h2>One quick step</h2><p class="muted">Open the <a href="index.html">Store Visit app</a> and tap "Email me a sign-in link." Open that email and tap the link. You only do this once, then come back to the Visit log.</p>';
     return;}
   $('signin').style.display='none';$('listview').style.display='block';
   $('acct').innerHTML=escA(u.email)+'<br><a href="index.html">Store Visit app</a>';

@@ -250,7 +250,9 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px
   <div style="font-size:12px;letter-spacing:2px;color:var(--muted);margin:2px 0 16px">STORE VISIT</div>
   <div id="gate-form"><label style="font-size:13px;font-weight:700">Your 1915 South email</label>
   <input id="gate-email" type="email" autocomplete="email" inputmode="email" placeholder="name@1915south.com">
-  <button id="gate-send" class="obtn">Email me a sign-in link</button></div>
+  <input id="gate-pw" type="password" autocomplete="current-password" placeholder="Password (same as the Smart Scheduler)" style="margin-top:0">
+  <button id="gate-login" class="obtn">Sign in</button>
+  <div style="display:flex;justify-content:space-between;margin-top:12px;font-size:13px"><a href="#" id="gate-forgot">Forgot password</a><a href="#" id="gate-send">Email me a sign-in link instead</a></div></div>
   <div id="gate-msg" style="font-size:13px;color:var(--ink);margin-top:12px"></div>
 </div></div>
 <div id="done" class="ovl" style="display:none"><div class="obox">
@@ -983,7 +985,11 @@ new MutationObserver(()=>enhanceTextareas()).observe(document.body,{childList:tr
 import API from './api.js';
 const $=id=>document.getElementById(id);
 function gate(show,msg){$('gate').style.display=show?'flex':'none';if(msg!=null)$('gate-msg').textContent=msg;}
-$('gate-send').addEventListener('click',async()=>{
+$('gate-login').addEventListener('click',async()=>{const b=$('gate-login');b.disabled=true;$('gate-msg').textContent='Signing in…';
+  try{await API.signInPassword($('gate-email').value,$('gate-pw').value);$('gate-msg').textContent='';}catch(e){gate(true,e.message||String(e));}b.disabled=false;});
+$('gate-pw').addEventListener('keydown',e=>{if(e.key==='Enter')$('gate-login').click();});
+$('gate-forgot').addEventListener('click',async e=>{e.preventDefault();try{await API.resetPassword($('gate-email').value);gate(true,'Password reset email sent. Check your inbox and junk, set a password, then sign in here.');}catch(err){gate(true,err.message||String(err));}});
+$('gate-send').addEventListener('click',async ev=>{ev.preventDefault();
   const b=$('gate-send');b.disabled=true;
   try{await API.sendLink($('gate-email').value);$('gate-form').style.display='none';
     gate(true,'Check your email for a sign-in link from Firebase and tap it on this phone. It can take a minute, and check junk mail.');}
@@ -992,7 +998,6 @@ $('gate-send').addEventListener('click',async()=>{
 API.finishLinkIfPresent(async()=>prompt('To finish signing in, type your 1915 South email:')).catch(e=>gate(true,'That sign-in link didn\'t work ('+(e.code||e.message)+'). Request a new one.'));
 API.onUser(async(u,info)=>{
   if(!u){USER=null;$('acct').innerHTML='';
-    if(info.needsVerify){$('gate-email').value=info.email||'';$('gate-form').style.display='';gate(true,'One quick step, only needed once: tap the button and open the sign-in link we email you.');return;}
     gate(true,info.error||'');return;}
   USER=u;gate(false);
   const dn=DIRECTORS[u.email.toLowerCase()];if(dn){const d=$('director');d.value=dn;d.readOnly=true;d.style.opacity='.85';S.header.director=dn;save();}
