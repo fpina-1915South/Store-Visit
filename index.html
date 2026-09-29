@@ -255,8 +255,13 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px
 </div></div>
 <div id="done" class="ovl" style="display:none"><div class="obox">
   <div style="font-size:34px">✓</div><div class="dmsg" style="font-size:15px;font-weight:700;margin:8px 0 16px"></div>
-  <button class="obtn" onclick="newVisit()">Start a new visit</button>
-  <button class="obtn" style="background:#fff;color:var(--navy);border:1.5px solid var(--navy);margin-top:8px" onclick="document.getElementById('done').style.display='none'">Back to this visit</button>
+  <button class="obtn" onclick="location.reload()">Start next visit</button>
+  <button class="obtn" style="background:#fff;color:var(--navy);border:1.5px solid var(--navy);margin-top:8px" onclick="location.href='log.html'">See it in the Visit log</button>
+</div></div>
+<div id="swap" class="ovl" style="display:none"><div class="obox">
+  <div class="smsg" style="font-size:15px;font-weight:700;margin:4px 0 16px"></div>
+  <button class="obtn" id="swapYes">Start a new visit</button>
+  <button class="obtn" id="swapNo" style="background:#fff;color:var(--navy);border:1.5px solid var(--navy);margin-top:8px">Keep working on this one</button>
 </div></div>
 <div id="bar">
   <button class="b-pdf" onclick="savePDF()">Save PDF</button>
@@ -721,7 +726,7 @@ function wire(){
   // text inputs
   document.body.addEventListener('input',e=>{
     const t=e.target;
-    if(t.id==='store'||t.id==='vdate'||t.id==='director'||t.id==='vtype')S.header[t.id]=t.value;
+    if(t.id==='vdate'||t.id==='director'||t.id==='vtype')S.header[t.id]=t.value;
     else if(t.dataset.sc!=null){S.score[t.dataset.sc]=t.value;}
     else if(t.dataset.el&&t.tagName==='TEXTAREA')S.el[t.dataset.el].notes=t.value;
     else if(t.dataset.aor&&t.tagName==='TEXTAREA')S.aor[t.dataset.aor].notes=t.value;
@@ -736,7 +741,9 @@ function wire(){
     else if(t.dataset.ap!=null)S.action[+t.dataset.ap][t.dataset.f]=t.value;
     saveDebounced();
   });
-  document.getElementById('store').addEventListener('change',e=>{S.header.store=e.target.value;renderScore();renderRoster();S.followup={};renderFollow();loadRoster();loadLast();save();});
+  document.getElementById('store').addEventListener('change',e=>{
+    if(S.header.store&&e.target.value!==S.header.store&&hasWork()){askNew(e.target.value);return;}
+    S.header.store=e.target.value;renderScore();renderRoster();S.followup={};renderFollow();loadRoster();loadLast();save();});
   document.body.addEventListener('click',e=>{
     const x=e.target.closest('[data-unroster]');
     if(x){e.stopPropagation();const r=getRoster(),st=S.header.store;r[st]=(r[st]||[]).filter(n=>n!==x.dataset.unroster);setRoster(r);renderRoster();return;}
@@ -817,6 +824,7 @@ async function toggleMic(btn,scopeKey){
 let sTimer=null;
 function saveDebounced(){clearTimeout(sTimer);sTimer=setTimeout(save,600);}
 function save(){
+  if(window.__svClearing)return;
   try{renderVisitScore();}catch(e){}
   if(MEDIA_DIRTY){MEDIA_DIRTY=false;idbSet('media',collectMedia());}
   try{
@@ -926,6 +934,7 @@ async function submitVisit(){
       lever:(S.lever||{}).pick||null,consultants:(S.scorecards||[]).map(c=>c.name).filter(Boolean),
       scoreAsOf:STORE_DATA.asOf||null,period:PERIOD,storeNumbers:(STORE_DATA.stores[S.header.store]||{})[PERIOD]||null};
     const res=await API.submitVisit(visit,photos);
+    await clearDraft();
     showDone(res.status==='saved'?'Visit submitted.':'Saved on this phone. It sends on its own when you have signal. Keep the app open for a minute if you can.');
   }catch(e){toastLong('Could not submit: '+(e.message||e)+'. Your work is still on this phone.');}
   btn.disabled=false;btn.textContent='✓ Submit Visit';
@@ -933,9 +942,18 @@ async function submitVisit(){
 function showDone(msg){
   const d=document.getElementById('done');d.querySelector('.dmsg').textContent=msg;d.style.display='flex';
 }
-async function newVisit(){
-  try{localStorage.removeItem(SK);}catch(e){} await idbDel('media'); location.reload();
-}
+async function clearDraft(){window.__svClearing=true;try{clearTimeout(sTimer);}catch(e){}
+  try{localStorage.removeItem(SK);}catch(e){} await idbDel('media');}
+async function newVisit(nextStore){await clearDraft();
+  try{if(nextStore)sessionStorage.setItem('sv_next_store',nextStore);else sessionStorage.removeItem('sv_next_store');}catch(e){}
+  location.reload();}
+function hasWork(){return (S.scorecards||[]).some(c=>c.name)||Object.values(S.el||{}).some(o=>o&&o.checks&&Object.keys(o.checks).length)||
+  (S.action||[]).some(a=>a&&(a.behavior||'').trim())||!!((S.lwin||{})['lw-win']||'').trim()||Object.values(S.aor||{}).some(a=>a&&a.status);}
+function askNew(next){const d=document.getElementById('swap');const cur=(S.header.store||'').split('— ')[1]||'this store';
+  d.querySelector('.smsg').textContent=next?('Start a new visit for '+(next.split('— ')[1]||next)+'? Your '+cur+' answers will be cleared.'):('Start a new visit? Your '+cur+' answers will be cleared.');
+  document.getElementById('swapYes').onclick=()=>newVisit(next||'');
+  document.getElementById('swapNo').onclick=()=>{d.style.display='none';document.getElementById('store').value=S.header.store||'';};
+  d.style.display='flex';}
 
 /* ─────────── INIT ─────────── */
 buildStores();buildScore();
@@ -951,6 +969,7 @@ addVoice(document.getElementById('actionbody'),'action','Action plan notes');
   const l=el('div','tagline');l.textContent='Reflection: what you saw today';l.style.marginBottom='6px';w.appendChild(l);
   const ta=el('textarea');ta.dataset.misc='reflect';ta.placeholder='Type, or tap to talk...';w.appendChild(ta);rb.insertBefore(w,rb.firstChild);})();
 wire();restore();renderRoster();restoreMedia();
+try{const ns=sessionStorage.getItem('sv_next_store');if(ns){sessionStorage.removeItem('sv_next_store');const sel=document.getElementById('store');sel.value=ns;sel.dispatchEvent(new Event('change'));}}catch(e){}
 (function(){const d=document.getElementById('vdate');
   if(!/^\d{4}-\d{2}-\d{2}$/.test(d.value)){const n=new Date();
     d.value=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');}
@@ -974,7 +993,8 @@ API.onUser(async(u,info)=>{
   if(!u){USER=null;gate(true,info.error||'');$('acct').innerHTML='';return;}
   USER=u;gate(false);
   const dn=DIRECTORS[u.email.toLowerCase()];if(dn){const d=$('director');d.value=dn;d.readOnly=true;d.style.opacity='.85';S.header.director=dn;save();}
-  $('acct').innerHTML=escA(u.email)+'<br><a href="log.html">Visit log</a> · <a href="#" id="so">Sign out</a>';
+  $('acct').innerHTML=escA(u.email)+'<br><a href="#" id="nv">New visit</a> · <a href="log.html">Visit log</a> · <a href="#" id="so">Sign out</a>';
+  $('nv').onclick=e=>{e.preventDefault();if(hasWork())askNew('');else newVisit('');};
   $('so').onclick=e=>{e.preventDefault();API.signOut();};
   const dir=$('director');if(!dir.value&&info.profile&&info.profile.name){dir.value=info.profile.name;S.header.director=dir.value;save();}
   try{const m=await API.getMetrics();
