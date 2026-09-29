@@ -947,6 +947,7 @@ API.finishLinkIfPresent(async()=>prompt('To finish signing in, type your 1915 So
 API.onUser(async(u,info)=>{
   if(!u){USER=null;gate(true,info.error||'');$('acct').innerHTML='';return;}
   USER=u;gate(false);
+  const dn=DIRECTORS[u.email.toLowerCase()];if(dn){const d=$('director');d.value=dn;d.readOnly=true;d.style.opacity='.85';S.header.director=dn;save();}
   $('acct').innerHTML=escA(u.email)+'<br><a href="log.html">Visit log</a> · <a href="#" id="so">Sign out</a>';
   $('so').onclick=e=>{e.preventDefault();API.signOut();};
   const dir=$('director');if(!dir.value&&info.profile&&info.profile.name){dir.value=info.profile.name;S.header.director=dir.value;save();}

@@ -93,8 +93,10 @@ async function load(){
   $('list').innerHTML='<div class="muted">Loading…</div>';
   try{VISITS=await API.listVisits();}catch(e){$('list').innerHTML='<div class="bad">Could not load visits: '+escA(e.message)+'</div>';return;}
   VISITS.sort((a,b)=>String(b.header?.vdate||'').localeCompare(String(a.header?.vdate||''))||((b.submittedAt||0)-(a.submittedAt||0)));
+  VISITS.forEach(v=>{const n=DIRECTORS[(v.email||'').toLowerCase()];if(n){v.header=v.header||{};v.header.director=n;}});
   const stores=[...new Set(VISITS.map(v=>v.header?.store).filter(Boolean))].sort();
   const dirs=[...new Set(VISITS.map(v=>v.header?.director||v.email).filter(Boolean))].sort();
+  Object.values(DIRECTORS).forEach(n=>{if(!dirs.includes(n))dirs.push(n);});dirs.sort();
   $('qStore').innerHTML='<option value="">All stores</option>'+stores.map(s=>`<option>${escA(s)}</option>`).join('');
   $('qDir').innerHTML='<option value="">All directors</option>'+dirs.map(s=>`<option>${escA(s)}</option>`).join('');
   meter(); render();
