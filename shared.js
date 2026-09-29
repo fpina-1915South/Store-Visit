@@ -17,10 +17,10 @@ function storeNum(label){ return String(label||'').split(' ')[0]; }
 /* Report "segment" names that don't match a store name directly. Add more here if the upload says a name didn't match. */
 var SEG_ALIASES = {
   'ft walton beach':'1106','fort walton beach':'1106','diberville':'1102','greensboro outlet':'1205',
-  'pensacola outlet':'1107','regency outlet':'1018','outlet regency':'1018','winston-salem':'1202'
+  'pensacola outlet':'1107','regency outlet':'1018','outlet regency':'1018','winston-salem':'1202','jax north':'1013','jax orange park':'1014','jax town center':'1012'
 };
 /* Region and district rollups in the daily report (not stores) */
-var ROLLUPS = ['east','central','west','big bend','capital & acadiana','crescent','fall line','golden isles','gulf coast','company','total','online','all stores'];
+var ROLLUPS = ['east','central','west','big bend','capital & acadiana','crescent','fall line','golden isles','gulf coast','company','total','online','all stores','magnolia','st johns','the piedmont','piedmont','wiregrass'];
 
 /* Daily report metric names → app keys */
 var REPORT_METRICS = {
