@@ -65,6 +65,7 @@ input,select,button{font-family:inherit;font-size:14px}
       <div><label>Director</label><select id="qDir"><option value="">All directors</option></select></div>
       <div><label>From</label><input type="date" id="qFrom"></div>
       <div><label>To</label><input type="date" id="qTo"></div>
+      <div><label>Type</label><select id="qType"><option value="">All</option><option value="visit">Store visits</option><option value="remote">Remote coaching</option></select></div>
       <div><label>Search notes</label><input type="search" id="qText" placeholder="Word or name"></div>
     </div>
     <div class="stats" id="stats"></div>
@@ -102,13 +103,14 @@ async function load(){
   $('qDir').innerHTML='<option value="">All directors</option>'+dirs.map(s=>`<option>${escA(s)}</option>`).join('');
   meter(); render();
 }
-['qStore','qDir','qFrom','qTo','qText'].forEach(id=>$(id).addEventListener('input',render));
+['qStore','qDir','qFrom','qTo','qText','qType'].forEach(id=>$(id).addEventListener('input',render));
 
 function filtered(){
   const st=$('qStore').value,d=$('qDir').value,f=$('qFrom').value,t=$('qTo').value,q=$('qText').value.trim().toLowerCase();
   return VISITS.filter(v=>{const h=v.header||{};
     if(st&&h.store!==st)return false; if(d&&(h.director||v.email)!==d)return false;
     if(f&&(h.vdate||'')<f)return false; if(t&&(h.vdate||'')>t)return false;
+    const ty=$('qType').value; if(ty&&((v.summary?.type||'visit')!==ty))return false;
     if(q&&!JSON.stringify(v).toLowerCase().includes(q))return false; return true;});
 }
 function render(){
@@ -120,7 +122,7 @@ function render(){
     <div class="stat"><b>${levers.close||0} / ${levers.tkt||0}</b><span>Close rate / Ticket lever</span></div>`;
   $('list').innerHTML=L.length?L.map(v=>{const h=v.header||{},s=v.summary||{};
     return `<div class="vrow" data-id="${v.id}"><div><div class="st">${escA(fmtDate(h.vdate))}</div><div class="sub">${escA(h.vtype||'')}</div></div>
-      <div><div class="st">${escA(h.store||'')}</div><div class="sub">${escA(h.director||v.email||'')}${s.lever?' · <span class="pill">'+(s.lever==='close'?'Close Rate':'Avg Ticket')+'</span>':''}${v.photoCount?' · '+v.photoCount+' photos':''}</div></div>
+      <div><div class="st">${escA(h.store||'')}</div><div class="sub">${escA(h.director||v.email||'')}${s.type==='remote'?' · <span class="pill" style="background:#FFF1E3;color:#B85F10">Remote</span>':''}${s.lever?' · <span class="pill">'+(s.lever==='close'?'Close Rate':'Avg Ticket')+'</span>':''}${v.photoCount?' · '+v.photoCount+' photos':''}</div></div>
       <div class="pct">${s.overall==null?'—':s.overall+'%'}</div></div>`;}).join(''):'<div class="muted" style="padding:10px 0">No visits match.</div>';
 }
 $('list').addEventListener('click',e=>{const r=e.target.closest('.vrow');if(r)openVisit(r.dataset.id);});
@@ -136,16 +138,17 @@ async function openVisit(id){
   <div class="stats"><div class="stat"><b>${s.overall==null?'—':s.overall+'%'}</b><span>Visit score</span></div>${(s.byElement||[]).map(r=>`<div class="stat"><b>${r.pct==null?'—':r.pct+'%'}</b><span>${escA(r.label)}</span></div>`).join('')}</div>`;
   if(s.storeNumbers){const P=s.storeNumbers;html+=`<div class="dsec"><h3>Store numbers (${escA({d:'Prior Day',w:'WTD',m:'MTD'}[s.period]||'')} as of ${escA(mdate(s.scoreAsOf))})</h3><div class="kgrid">${Object.entries(REPORT_METRICS).map(([k,l])=>P[k]?`<div>${escA(l)}<b>${P[k][0]==null?'—':(+P[k][0]).toLocaleString('en-US',{maximumFractionDigits:1})}</b></div>`:'').join('')}</div>${note(misc.score?.text)}</div>`;}
   const lv=v.lever||{};html+=`<div class="dsec"><h3>Lever</h3><div><span class="pill">${lv.pick==='close'?'Close Rate':lv.pick==='tkt'?'Avg Ticket':'Not picked'}</span></div>${note(lv.why)}</div>`;
+  if(s.type==='remote'){const rm=v.remote||{};html+=`<div class="dsec"><h3>Remote coaching</h3><div class="muted">${escA([rm['rm-how'],rm['rm-who'],rm['rm-min']?rm['rm-min']+' min':''].filter(Boolean).join(' · '))}</div>${note(rm['rm-notes'])}</div>`;}
   const lw=v.lwin||{};html+=`<div class="dsec"><h3>Leader win${lw['lw-name']?': '+escA(lw['lw-name']):''}</h3>${note(lw['lw-win'],'win')||'<div class="muted">None recorded</div>'}</div>`;
   if(v.followup&&Object.keys(v.followup).length)html+=`<div class="dsec"><h3>Last visit's commitments</h3>${Object.entries(v.followup).map(([i,x])=>`<div class="chk"><b class="${x}">${{yes:'DONE',partial:'PARTIAL',no:'NOT DONE'}[x]}</b><span>Commitment ${+i+1}</span></div>`).join('')}</div>`;
-  html+=`<div class="dsec"><h3>1 · High Performing Sales Culture</h3>${chk(el.e1?.checks,ELEMENTS[0].items)}${note(el.e1?.notes)}
+  if(s.type!=='remote')html+=`<div class="dsec"><h3>1 · High Performing Sales Culture</h3>${chk(el.e1?.checks,ELEMENTS[0].items)}${note(el.e1?.notes)}
     ${SEGMENTS.map((g,gi)=>`<div style="margin-top:8px;font-weight:700;font-size:13px">${escA(g.name)}</div>${chk(el['seg'+gi]?.checks,g.items)}${note(el['seg'+gi]?.notes)}`).join('')}</div>`;
   html+=`<div class="dsec"><h3>Consultants coached</h3>${(v.scorecards||[]).filter(c=>c.name).map(c=>`<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px">
      <div style="font-weight:800">${escA(c.name)}</div>${note(c.win,'win')}
      <div class="kgrid" style="margin-top:6px">${Object.entries(c.kpi||{}).map(([k,x])=>`<div>${escA(k)}<b>${escA(x)}</b></div>`).join('')}</div>
      <div style="margin-top:6px;font-weight:700;font-size:13px">Stand-Up Practice</div>${chk(c.practice,PRACTICE.items)}
      ${c.coached?'<div style="margin-top:6px;font-weight:700;font-size:13px">Coached on</div>'+note(c.coached):''}</div>`).join('')||'<div class="muted">None</div>'}${note(misc.sccard?.text)}</div>`;
-  ELEMENTS.slice(1).forEach(E=>{const r=el['e'+E.n]||{};
+  if(s.type!=='remote')ELEMENTS.slice(1).forEach(E=>{const r=el['e'+E.n]||{};
     html+=`<div class="dsec"><h3>${E.n} · ${escA(E.t)}</h3>${chk(r.checks,E.items)}`;
     if(E.aorIntro)html+=AORS.map((a,ai)=>{const x=(v.aor||{})['a'+ai]||{};return `<div class="chk"><b class="${x.status==='pass'?'yes':x.status==='needs'?'no':''}">${x.status?TAG[x.status]:'—'}</b><span>${escA(a)}${x.notes?'<div class="note">'+escA(x.notes)+'</div>':''}<div class="photos" data-ph="aor:a${ai}"></div></span></div>`;}).join('');
     html+=`${note(r.notes)}<div class="photos" data-ph="el:e${E.n}"></div></div>`;});

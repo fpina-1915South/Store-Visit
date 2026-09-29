@@ -26,7 +26,8 @@ var ROLLUPS = ['east','central','west','big bend','capital & acadiana','crescent
 var REPORT_METRICS = {
   spg:'Sales per Guest w. Cancellations', sph:'Sales per Hour', close:'Close Rate', tkt:'Avg Ticket w. Del.',
   apps:'Finance Apps to Traffic', fin:'Finance % of Sales', fino:'Finance % of Orders', bspg:'Bedding SPG',
-  bed:'Bedding % of Sales', prot:'Protection % of Sales', patt:'Protection Attachment', del:'Delivery % of sales'
+  bed:'Bedding % of Sales', prot:'Protection % of Sales', patt:'Protection Attachment', del:'Delivery % of sales',
+  cart:'Carts Built'
 };
 
 function normName(s){ return String(s||'').toLowerCase().replace(/ashley/g,'').replace(/[^a-z& ]/g,' ').replace(/\s+/g,' ').trim(); }

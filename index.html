@@ -55,6 +55,9 @@ body{font-family:Aptos,Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
 .obtn{width:100%;border:none;border-radius:10px;padding:13px 0;font-size:15px;font-weight:800;font-family:inherit;background:var(--navy);color:#fff;cursor:pointer;}
 .obtn:disabled{opacity:.5;}
 #acct a{color:#fff;}
+.remote-only{display:none;}
+body.remote .remote-only{display:block;}
+body.remote #el1-slot,body.remote #sections{display:none;}
 .lever{margin-top:12px;background:#fff;color:var(--ink);border-radius:12px;padding:12px;}
 .lever h4{margin:0 0 2px;font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--navy);}
 .lever .lsub{font-size:12px;color:var(--muted);margin-bottom:10px;}
@@ -190,7 +193,7 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px
     <div class="hf"><label>Store</label><select id="store"><option value="">Select store…</option><option value="__other">Other…</option></select></div>
     <div class="hf"><label>Date</label><input id="vdate" type="date"></div>
     <div class="hf"><label>Director / Leader</label><input id="director" type="text" placeholder="Your name"></div>
-    <div class="hf"><label>Visit Type</label><select id="vtype"><option value="">Select…</option><option>Priority</option><option>Follow-Up</option><option>Coaching Stop</option></select></div>
+    <div class="hf"><label>Visit Type</label><select id="vtype"><option value="">Select…</option><option>Priority</option><option>Follow-Up</option><option>Coaching Stop</option><option>Remote Coaching</option></select></div>
   </div>
 </div>
 
@@ -209,6 +212,14 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px
     <input id="lw-name" type="text" placeholder="Leader name" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:14px;font-family:inherit">
     <div class="winhits" id="lw-hits" style="margin-top:8px"></div>
     <textarea id="lw-win" placeholder="What this leader did well. Tell them, and tell the team..."></textarea>
+  </div></div></div>
+
+<div class="sec open remote-only" id="sec-remote"><div class="sec-hd" onclick="toggle(this)"><div class="num" style="background:var(--orange)">☎</div><div style="flex:1"><h2>Remote Coaching</h2><div class="q">Coaching done by phone, Teams or text. No store walk needed.</div></div><span class="chev">›</span></div>
+  <div class="sec-bd"><div class="ap" style="margin-top:0">
+    <label>How</label><select id="rm-how" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;font-family:inherit"><option value="">Select…</option><option>Phone call</option><option>Teams video</option><option>Text / chat</option></select>
+    <label>Who was on it</label><input id="rm-who" placeholder="Leader and consultants">
+    <label>Minutes</label><input id="rm-min" inputmode="numeric" placeholder="e.g. 20">
+    <label>What you coached</label><textarea id="rm-notes" placeholder="The behavior you coached and what you heard..."></textarea>
   </div></div></div>
 
 <div class="sec" id="sec-follow"><div class="sec-hd" onclick="toggle(this)"><div class="num" style="background:var(--orange)">↻</div><div style="flex:1"><h2>Last Visit's Commitments</h2><div class="q">Did they do what they said? Check before anything new.</div></div><span class="chev">›</span></div>
@@ -292,6 +303,7 @@ const SC_METRICS=[
  {k:'spggr',l:'SPG vs Budget',f:'pctchg'},
  {k:'sph',l:'SPH',f:'$',fix:400},
  {k:'close',l:'Close Rate',f:'%',t:'bps'},
+ {k:'cart',l:'Cart %',f:'%',fix:50},
  {k:'tkt',l:'Avg Ticket',f:'$',t:'pct'},
  {k:'apps',l:'Apps to Traffic',f:'%',fix:10},
  {k:'fin',l:'Finance % Sales',f:'%',fix:55},
@@ -427,20 +439,27 @@ function addVoice(container,key,label){
 function enhanceTextareas(){document.querySelectorAll('textarea:not([data-talk])').forEach(ta=>{
   ta.dataset.talk='1';const b=el('button','talk');b.type='button';b.innerHTML='🎤 Tap to talk';ta.insertAdjacentElement('afterend',b);});}
 let REC=null,recBtn=null;
-function stopTalk(){if(REC){try{REC.stop();}catch(e){}}}
+function stopTalk(){if(REC){const r=REC;if(r.__stop)r.__stop();try{r.stop();}catch(e){}}}
+const IS_IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 function startTalk(btn){
+  if(IS_IOS){const ta=btn.previousElementSibling;if(ta&&ta.tagName==='TEXTAREA'){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}
+    toastLong('Tap the 🎤 on your keyboard and talk. It types right into this box.');return;}
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){toastLong("Talk-to-text isn't available here. Use the mic on your phone's keyboard instead.");return;}
   if(REC){const same=recBtn===btn;stopTalk();if(same)return;}
   const ta=btn.previousElementSibling;if(!ta||ta.tagName!=='TEXTAREA')return;
-  const r=new SR();r.lang='en-US';r.continuous=true;r.interimResults=true;
-  const base=ta.value?ta.value.replace(/\s*$/,' '):'';let finalTxt='';
-  r.onresult=e=>{let interim='';for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript;
-      if(e.results[i].isFinal)finalTxt+=t.trim()+' ';else interim+=t;}
-    ta.value=base+finalTxt+interim;ta.dispatchEvent(new Event('input',{bubbles:true}));};
-  r.onerror=e=>{if(e.error==='not-allowed'||e.error==='service-not-allowed')toastLong('Microphone blocked. Allow it in your browser settings, or use the keyboard mic.');};
-  r.onend=()=>{ta.value=(base+finalTxt).trim();ta.dispatchEvent(new Event('input',{bubbles:true}));
+  const r=new SR();r.lang='en-US';r.continuous=false;r.interimResults=true;
+  const base=ta.value?ta.value.replace(/\s*$/,' '):'';let finalTxt='';let keep=true;let cur='';
+  r.onresult=e=>{let interim='',fin='';for(let i=0;i<e.results.length;i++){const t=e.results[i][0].transcript;
+      if(e.results[i].isFinal)fin+=t;else interim+=t;}
+    cur=fin?fin.trim()+' ':'';ta.value=base+finalTxt+cur+interim;ta.dispatchEvent(new Event('input',{bubbles:true}));};
+  r.onspeechend=()=>{};
+  r.onerror=e=>{if(e.error==='not-allowed'||e.error==='service-not-allowed'){keep=false;toastLong('Microphone blocked. Allow it in your browser settings, or use the keyboard mic.');}else if(e.error==='network'){keep=false;toastLong('Talk-to-text needs signal. Use the mic on your keyboard instead.');}};
+  r.onend=()=>{finalTxt+=cur;cur='';
+    if(REC===r&&keep){try{r.start();return;}catch(e){}}
+    ta.value=(base+finalTxt).trim();ta.dispatchEvent(new Event('input',{bubbles:true}));
     btn.classList.remove('on');btn.innerHTML='🎤 Tap to talk';REC=null;recBtn=null;};
+  r.__stop=()=>{keep=false;};
   try{r.start();}catch(e){toast("Couldn't start the mic.");return;}
   REC=r;recBtn=btn;btn.classList.add('on');btn.innerHTML='<span class="recdot"></span>Listening... tap to stop';
 }
@@ -710,6 +729,7 @@ function wire(){
     else if(t.dataset.scard!=null){S.scorecards[+t.dataset.scard]=S.scorecards[+t.dataset.scard]||{kpi:{}};S.scorecards[+t.dataset.scard][t.dataset.f]=t.value;}
     else if(t.dataset.sckpi!=null){const _s=(S.scorecards[+t.dataset.sckpi]=S.scorecards[+t.dataset.sckpi]||{kpi:{}});_s.kpi=_s.kpi||{};_s.kpi[t.dataset.kpi]=t.value;}
     else if(t.dataset.misc!=null){S.misc=S.misc||{};S.misc[t.dataset.misc]=S.misc[t.dataset.misc]||{photos:[],audio:[]};S.misc[t.dataset.misc].text=t.value;}
+    else if(t.id&&t.id.startsWith('rm-')){S.remote=S.remote||{};S.remote[t.id]=t.value;}
     else if(t.id==='lever-why'){S.lever=S.lever||{};S.lever.why=t.value;}
     else if(t.id==='lw-name'||t.id==='lw-win'){S.lwin=S.lwin||{};S.lwin[t.id]=t.value;}
     else if(t.id==='ref-coach')S.ref.coach=t.value;
@@ -740,7 +760,7 @@ function wire(){
     const c=S.scorecards[+t.dataset.scard];c.name=t.value.trim();
     if(fillFromRSA(c)){learn(c.name);renderScorecards();renderRoster();save();}
   });
-  document.getElementById('vtype').addEventListener('change',e=>{S.header.vtype=e.target.value;save();});
+  document.getElementById('vtype').addEventListener('change',e=>{S.header.vtype=e.target.value;applyType();save();});
   document.getElementById('director').addEventListener('change',e=>{if(window.API&&USER)API.setProfile({name:e.target.value.trim()}).catch(()=>{});});
 }
 
@@ -833,6 +853,7 @@ function restore(){
     // action + reflection
     S.action=s.action||[{},{},{}];S.action.forEach((row,i)=>Object.entries(row).forEach(([f,v])=>{const inp=document.querySelector(`[data-ap="${i}"][data-f="${f}"]`);if(inp)inp.value=v;}));
     Object.entries(s.misc||{}).forEach(([k,v])=>{if(v&&v.text){S.misc[k]=S.misc[k]||{photos:[],audio:[]};S.misc[k].text=v.text;const x=document.querySelector(`textarea[data-misc="${k}"]`);if(x)x.value=v.text;}});
+    S.remote=s.remote||{};Object.entries(S.remote).forEach(([id,v])=>{const x=document.getElementById(id);if(x)x.value=v;});applyType();
     S.followup=s.followup||{};S.lwin=s.lwin||{};Object.entries(S.lwin).forEach(([id,v])=>{const x=document.getElementById(id);if(x)x.value=v;});
     S.ref=s.ref||{};if(S.ref.coach)document.getElementById('ref-coach').value=S.ref.coach;
   }catch(e){console.warn('restore',e);}
@@ -877,11 +898,16 @@ function computeScore(){
   add('4 · Facilities',scoreOf(['e4']));add('5 · Back Office',scoreOf(['e5']));add('6 · Inventory',scoreOf(['e6']));
   return {rows,tot:T?Math.round(100*N/T):null};
 }
+function isRemote(){return S.header.vtype==='Remote Coaching';}
+function applyType(){document.body.classList.toggle('remote',isRemote());}
 function missing(){const m=[];
   if(!S.header.store)m.push('store');
   if(!(S.lever&&S.lever.pick))m.push('lever picked');
+  if(isRemote()){ if(!((S.remote||{})['rm-notes']||'').trim()&&!(S.scorecards||[]).some(c=>c.name))m.push('what you coached'); }
+  else{
   if(!(S.lwin&&(S.lwin['lw-win']||'').trim()))m.push('leader win');
   if(!(S.scorecards||[]).some(c=>c.name))m.push('1 consultant coached');
+  }
   if(!(S.action||[]).some(a=>a&&(a.behavior||'').trim()))m.push('1 action item');
   return m;}
 function fmtDate(v){const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v||'');return m?m[2]+'-'+m[3]+'-'+m[1]:(v||'');}
@@ -896,7 +922,7 @@ async function submitVisit(){
     const visit=JSON.parse(JSON.stringify(S));
     [visit.el,visit.aor,visit.misc||{}].forEach(b=>Object.values(b).forEach(o=>{delete o.photos;delete o.audio;}));
     const sc=computeScore();
-    visit.summary={overall:sc.tot,byElement:sc.rows.map(([l,r])=>({label:l,pct:r.t?Math.round(100*r.n/r.t):null})),
+    visit.summary={type:isRemote()?'remote':'visit',overall:sc.tot,byElement:sc.rows.map(([l,r])=>({label:l,pct:r.t?Math.round(100*r.n/r.t):null})),
       lever:(S.lever||{}).pick||null,consultants:(S.scorecards||[]).map(c=>c.name).filter(Boolean),
       scoreAsOf:STORE_DATA.asOf||null,period:PERIOD,storeNumbers:(STORE_DATA.stores[S.header.store]||{})[PERIOD]||null};
     const res=await API.submitVisit(visit,photos);
