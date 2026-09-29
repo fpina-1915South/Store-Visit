@@ -149,3 +149,7 @@ var PRACTICE={q:'Run the play with this consultant, standing up. Score what you 
    'All 4 options presented as protected & delivered; closed with "which feels right?"',
    'Ashley story told with conviction'
 ]};
+
+
+/* Directors: sign-in email -> name. The app fills in and locks the name from this list. */
+var DIRECTORS={'fpina@1915south.com':'Frank Pina','ocruz@1915south.com':'Orlando Cruz','msevert@1915south.com':'Meagan Severt','ccarritz@1915south.com':'Cole Carritz','sdance@1915south.com':'Scott Dance','ebrickner@1915south.com':'Erika Brickner','kwilliams@1915south.com':'Kelsie Williams','jkeene@1915south.com':'Jonathan Keene'};
