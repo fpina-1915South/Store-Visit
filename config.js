@@ -13,4 +13,4 @@ export const EMAIL_DOMAIN = "1915south.com";
 export const OWNER_EMAILS = ["fpina@1915south.com"];
 /* Executive team and directors: can see every visit (view only). Keep in sync with svExec() in the Firestore rules. */
 export const EXEC_EMAILS = ["jwoods@1915south.com","bsmallwood@1915south.com","lodom@1915south.com","ahall@1915south.com","anohelty@1915south.com",
-  "ocruz@1915south.com","msevert@1915south.com","ccarritz@1915south.com","sdance@1915south.com","ebrickner@1915south.com","kwilliams@1915south.com","jkeene@1915south.com","tdevlin@1915south.com"];
+  "ocruz@1915south.com","msevert@1915south.com","ccarritz@1915south.com","sdance@1915south.com","ebrickner@1915south.com","kwilliams@1915south.com","jkeene@1915south.com","tdevlin@1915south.com","jmccord@1915south.com"];
